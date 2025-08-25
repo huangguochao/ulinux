@@ -1,0 +1,30 @@
+https://www.rpmfind.net/linux/rpm2html/search.php?query=ansible
+1)package install
+yum localinstall python-crypto-XXXX.XX..x86_64.rpm
+yum localinstall python-keyczar-XXXX.XX.noarch.rpm
+yum localinstall python-httplib2-XXXX.XX.mga1.noarch.rpm
+yum localinstall sshpass-XXXX.XX.mga6.x86_64.rpm
+yum localinstall python-jinja2-XXXX.XX.noarch.rpm
+yum localinstall python2-jmespathXXXX.XX.noarch.rpm python-passlib-XXXX.XX.noarch.rpm
+yum localinstall ansible-XXXX.XX.noarch.rpm
+
+2)https://www.snel.com/support/how-to-install-ansible-on-centos-7/
+• ansible --version
+• ssh-keygen
+ssh-keygen -t rsa
+ssh-copy-id root@192.168.0.101   被管理机器IP，保证能自动ssh登录
+
+• ssh root@192.168.0.101
+vi /etc/ansible/hosts
+[servers]
+server1 ansible_host=192.168.0.101 ansible_user=root
+
+• # ansible -m ping all
+• server1 | SUCCESS => {
+• "changed": false, 
+• "ping": "pong"
+• }
+
+# ansible -m shell -a 'ls ' server1
+server1 | SUCCESS | rc=0 >>
+anaconda-ks.cfg
