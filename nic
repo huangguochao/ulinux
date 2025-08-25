@@ -1,0 +1,40 @@
+查看网卡配置
+ethtool -i eth0
+ethtool -s eth0 speed 1000 duplex full autoneg on
+
+
+查看guest网卡ip信息
+# virsh domiflist $guestname
+Interface  Type       Source     Model       MAC
+-------------------------------------------------------
+vnet15     bridge     br-private virtio      52:54:00:XX:XX:XX
+vnet16     bridge     br-public  virtio      52:54:00:XX:XX:XX
+
+# arp | grep 52:54:00:02:5a:8e
+192.168.122.XXX          ether   52:54:00:XX:XX:XX   C   br-private
+
+guest网口监控
+nc -l 1234
+nmap -PT 192.168.122.2-254 -p 1234 | grep open
+nmap -PT 192.168.122.2-254 | grep 192.168.122
+
+删除某条路由
+route del -net 192.168.3.0 netmask 255.255.255.0 dev eth1
+
+重建virbr0
+ifconfig	eth0	0.0.0.0
+brctl	addbr	virbr0
+brctl	addif	virbr0	eth0
+brctl	show
+ifconfig	virbr0	192.168.122.1
+##############################################################
+guest网络有问题，一般需要删除guest virbr0
+# virsh net-list
+Name                 State      Autostart
+-----------------------------------------
+default              active     yes       
+
+# virsh net-destroy default 
+关闭guest  virbr0
+
+为了重启生效# virsh net-undefine default 
