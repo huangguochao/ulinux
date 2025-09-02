@@ -293,4 +293,97 @@ VV                                                     |
              |  | 评审拒绝                              |
              v  |                                      | 
           Gerrit触发代码评审    -----评审通过&合并------>
+
+Demo：
+第一步：认为来源与规划（Jira）
+1、关键设定：Jira中，会有一个对应功能需求的故事（story）与任务（Task），如NET-125。
+2、操作（测试）：
+   在Jira任务下创建子任务NET-125-TEST，将其分配给自己。
+   阅读需求，编写和准备相应的自动化测试脚本，验证相关测试功能。这些自动化脚本会放入代码库或者被Jenkins调用。
+   开发者完成代码后，会在Jira上将状态更新为“解决”或“待测”，并在评论中提供Gerrit代码的评审链接和编译后的驱动版本。
+第二步：代码审查 (Gerrit)
+1、关键设定： Gerrit项目配置了必须至少+2票才能合并的规则，
+   并且会自动触发一个名为 net-driver-verify 的Jenkins任务进行初步编译。
+2、操作（评审者）：
+   收到Gerrit的评审邮件，点击链接查看这次代码提交。
+   不仅评审功能逻辑，更关注可测试性：
+            代码中是否新增了可供查询的调试接口？（例如，在 /sys/class/net/eth0/features/tso 暴露状态）
+            是否有清晰的日志输出？（方便失败时定位问题）
+            是否考虑了异常情况？（这些正是我测试用例的来源）
+   如果发现可测试性问题，会在Gerrit中提交评论，要求开发者补充，并投-1 票。如果一切良好，投 +1 或 +2 票。
+第三步：持续集成与自动化测试 (Jenkins + Docker)
+1、关键设定（Jenkins Job配置）：
+    源码管理： Git，仓库地址指向Gerrit。
+    构建触发器：
+              Gerrit Trigger: 配置为当refs/heads/master分支有新的合并时触发。
+              同时配置定时构建，例如每晚一次，进行全量回归测试。
+    构建环境： 选择提供Docker环境或使用Docker Pipeline插件。
+    构建步骤：
+              Shell Step 1: 编译
+                    make ARCH=x86_64 -j4
+                    make modules_install INSTALL_MOD_PATH=./output
+                    # 将编译好的驱动（.ko文件）和内核镜像打包成tar包
+              Shell Step 2: 准备测试环境并执行测试
+                    # 使用Dockerfile构建测试镜像
+                    docker build -t net-driver-test-env:latest -f Dockerfile.test .
+
+                    # 运行容器，将编译输出的驱动包、测试脚本挂载到容器内
+                      docker run --rm --privileged \
+                      -v $(pwd)/output:/output \
+                      -v $(pwd)/scripts:/scripts \
+                      net-driver-test-env:latest \
+                      /scripts/run_net_tests.sh # 在容器内执行自动化测试脚本
+    后构建操作：
+               Publish JUnit test result: 配置XML报告路径（例如 test-results/*.xml），Jenkins会解析并展示图表。
+               Editable Email Notification: 将测试报告和日志打包作为附件，发送给开发团队。
+2、关键设定（Dockerfile.test）：
+     # 使用一个基础Linux镜像
+     FROM ubuntu:20.04
+
+     # 安装测试依赖：内核头文件、编译工具、测试工具（ethtool, iperf3, tc等）
+     RUN apt-get update && apt-get install -y \
+         linux-headers-generic \
+         build-essential \
+         ethtool \
+         iperf3 \
+         iproute2 \
+         && rm -rf /var/lib/apt/lists/*
+
+     # 设置工作目录
+       WORKDIR /test
+       CMD ["/bin/bash"]
+3、我的自动化测试脚本 (run_net_tests.sh)：
+     #!/bin/bash
+     # 加载新编译的驱动
+     insmod /output/lib/modules/.../xx_net_driver.ko
+     
+     # 等待网卡识别
+     sleep 2
+     
+     # 使用ethtool验证TSO是否启用
+     if ethtool -k eth0 | grep -q "tcp-segmentation-offload: on"; then
+         echo "TSO is enabled: PASS" > test_result.xml
+     else
+         echo "TSO is NOT enabled: FAIL" > test_result.xml
+         exit 1 # 非0退出码表示失败，会触发Jenkins构建失败
+     fi
+
+     # ... 可以继续执行其他性能或功能测试
+
+第四步：问题跟踪与闭环 (Jira + Jenkins)
+1、测试通过：
+     Jenkins任务显示蓝色（成功）。
+     团队收到邮件：“驱动NET构建 #123 成功”，所有测试通过。这意味着功能已就绪，可以发布。
+2、测试失败：
+     Jenkins任务显示红色（失败）。
+     关键设定： 在Jenkins中配置 Jira Plugin，并填写Jira站点的URL、用户名、密码用于API调用。
+     自动化闭环： 在Jenkins的后构建操作中配置：
+           Jira: Create Issue
+           Project: NET
+           Issue Type: Bug
+           Description: 自动填充失败日志摘要和构建链接。
+           Assignee: 根据代码提交者自动指派给对应的开发者。
+     开发者会立即收到Jira提醒，有一个新的Bug NET-128: TSO功能测试失败于构建#123 被指派给他。
+     他点击Jira中的链接直接跳转到Jenkins失败日志页面，开始排查问题。
+     开发者修复后，再次提交代码到Gerrit，新的循环开始，直到所有问题解决。
 ---------------------------------------------------------------------------
