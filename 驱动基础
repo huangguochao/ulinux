@@ -1,0 +1,112 @@
+一、 Linux 系统与驱动基础 
+1. 问题：为了诊断一个疑似Linux驱动问题，你需要查看内核日志。你会使用什么命令？
+如何实时监控日志，并过滤出只与你测试的驱动（例如一个叫`my_driver.ko``）相关的信息？
+
+使用 dmesg -w 或 tail -f /var/log/kerner.log
+dmesg -w | grep -i my_driver
+插入驱动模块时调整 printk 的日志级别，或者使用 udevadm 等工具来监控设备事件
+
+调整printk日志级别（动态修改）：
+# 查看当前控制台日志级别
+cat /proc/sys/kernel/printk
+# 临时设置控制台日志级别为7（调试级别）
+echo 7 > /proc/sys/kernel/printk
+# 插入模块时指定调试级别（示例）
+sudo insmod mymodule.ko debug=1
+
+内核模块中设置printk级别（源码级）：
+// 在驱动代码中添加不同级别的日志
+printk(KERN_DEBUG "Debug message\n");    // 7
+printk(KERN_INFO "Info message\n");      // 6
+printk(KERN_NOTICE "Notice message\n");  // 5
+printk(KERN_WARNING "Warning message\n");// 4
+printk(KERN_ERR "Error message\n");      // 3
+
+使用udevadm监控设备事件：
+# 实时监控所有udev事件
+sudo udevadm monitor --kernel --property --udev
+# 监控特定子系统的事件（如USB）
+sudo udevadm monitor --kernel --property --subsystem-match=usb
+# 查看设备属性（以sda为例）
+udevadm info --query=all --name=/dev/sda
+# 触发设备事件（用于测试规则）
+sudo udevadm trigger --verbose --action=add --subsystem-match=usb
+
+实例场景：
+调试USB驱动加载：
+# 设置最高日志级别
+echo 8 > /proc/sys/kernel/printk
+# 插入驱动并监控
+sudo insmod usb_driver.ko
+udevadm monitor --property --kernel --subsystem-match=usb
+
+监控鼠标插拔事件：
+udevadm monitor --property --kernel --subsystem-match=input | grep --line-buffered "MOUSE"
+-----------------------------------------------------------------------
+2. 问题：一个驱动模块（.ko文件）无法正常加载（insmod），你通常会从哪几个方面去排查问题？
+
+查看内核日志：
+首先运行 dmesg | tail，加载失败的原因通常会在日志末尾有明确提示，
+比如 ‘Unknown symbol’（未知符号）或 ‘Invalid parameter’（参数无效）。
+
+检查模块依赖：
+使用 modinfo my_driver.ko 查看模块信息，特别是 depends 字段。
+如果它有依赖的其他模块，需要先用 insmod 或 modprobe 加载这些依赖模块。
+modprobe 会自动处理依赖关系，通常是更好的选择。
+
+检查符号丢失：
+如果日志提示 ‘Unknown symbol’，意味着该模块依赖的某个函数或变量在内核或其他模块中找不到。
+这可能是依赖模块没加载，或者是内核配置（.config）不同导致的版本不匹配。
+
+验证模块版本：
+使用 uname -r 确认当前运行的内核版本，并检查模块是否是为这个版本的内核编译的。版本不匹配是常见问题。
+
+检查参数：
+如果驱动接受参数，检查传递给 insmod 的参数是否正确、有效。
+modinfo your_module.ko
+insmod your_module.ko param1=value1 param2=value2
+dmesg | tail -20   # 查看最后20行日志
+
+# 启用动态调试后加载模块
+echo "module your_module +p" > /sys/kernel/debug/dynamic_debug/control
+sudo insmod your_module.ko param1=test
+dmesg | grep your_module
+
+# 测试边界值（示例）
+sudo insmod your_module.ko int_param=2147483647  # INT_MAX测试
+sudo insmod your_module.ko int_param=2147483648  # 应失败
+
+# 加载后检查参数实际值
+cat /sys/module/your_module/parameters/*
+
+# 验证参数变化后的重新加载
+sudo rmmod your_module
+sudo insmod your_module.ko changed_param=new_value
+---------------------------------------------------------------------------
+二、 测试设计与流程 (考察测试思维和流程熟悉度)
+3. 问题：请描述一下，当你拿到一个全新的Linux驱动需求文档时，你的测试设计思路是怎样的？你会从哪些方面来设计测试用例？
+功能测试：这是核心。
+我会逐条验证需求文档中定义的每个功能点。
+包括正常的输入输出、异常和错误处理（如传递非法参数、设备断开等）、边界值测试。
+
+性能测试：
+评估驱动的性能指标，如吞吐量、延迟、CPU占用率、内存占用等。
+我会使用 perf, ftrace, iostat 等工具进行 profiling，找出性能瓶颈。
+
+稳定性/压力测试：
+长时间、高负载地运行驱动，看是否会出现内存泄漏、死锁、系统崩溃（panic/oops）等问题。
+例如，连续进行百万次的设备打开-关闭操作。
+
+兼容性测试：
+在不同内核版本、不同硬件平台（如x86 vs ARM）、不同编译器版本上进行测试。
+
+安全测试：
+检查是否有权限绕过、缓冲区溢出等安全问题。
+
+升级与降级测试：
+验证驱动模块或固件升级、降级后功能是否正常。
+
+异常测试：
+模拟异常场景，如热插拔设备、突然断电后上电、资源（内存）耗尽等情况下的驱动行为。”
+---------------------------------------------------------------------------
+
