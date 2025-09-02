@@ -387,3 +387,241 @@ Demo：
      他点击Jira中的链接直接跳转到Jenkins失败日志页面，开始排查问题。
      开发者修复后，再次提交代码到Gerrit，新的循环开始，直到所有问题解决。
 ---------------------------------------------------------------------------
+如何让设备测试脚本容器化
+docker访问硬件时需要：
+1、--privileged 特权模式：这是最强大但也最危险的方式。
+2、--device 设备映射：这是更安全、更推荐的方式。
+
+两个测试脚本两个独立的Docker镜像（推荐的最佳实践）
+实现步骤：
+1. 为IO测试脚本创建Dockerfile (Dockerfile.io.test)
+# 使用CentOS作为基础镜像
+FROM centos:7
+# 安装测试所需的工具（根据你的脚本1实际需求修改）
+RUN yum install -y smartmontools hdparm fio && yum clean all
+# 将测试脚本复制到镜像中
+COPY script1_io_test.sh /usr/local/bin/
+# 设置执行权限
+RUN chmod +x /usr/local/bin/script1_io_test.sh
+# 设置容器启动时执行的命令（也可以是入口点）
+ENTRYPOINT ["/usr/local/bin/script1_io_test.sh"]
+
+构建镜像：docker build -t io-test-tool -f Dockerfile.io.test .
+
+2. 为网卡测试脚本创建Dockerfile (Dockerfile.network.test)
+FROM centos:7
+# 安装网络测试工具（根据你的脚本2实际需求修改）
+RUN yum install -y iperf3 iputils ethtool && yum clean all
+COPY script2_nic_test.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/script2_nic_test.sh
+ENTRYPOINT ["/usr/local/bin/script2_nic_test.sh"]
+
+构建镜像：docker build -t network-test-tool -f Dockerfile.network.test .
+
+3. 在CI/CD流水线中运行（以Shell执行器为例）
+你的CI/CD任务配置（如 .gitlab-ci.yml 或 Jenkinsfile）会像这样：
+stages:
+  - hardware-test
+
+io-test:
+  stage: hardware-test
+  tags:
+    - hardware-worker # 这个任务需要在一个能访问硬件的特定Runner上执行
+  script:
+    - docker run --rm --device /dev/sda:/dev/sda io-test-tool
+
+network-test:
+  stage: hardware-test
+  tags:
+    - hardware-worker
+  script:
+    - docker run --rm --network=host network-test-tool # 测试网卡通常需要`--network=host`
+---------------------------------------------------------------------------
+上述方法中的 完整的 Jenkinsfile 示例
+pipeline {
+    agent {
+        label 'hardware-worker' // 指定在有硬件访问权限的节点上运行
+    }
+    
+    environment {
+        // 定义 Docker 镜像名称（假设已推送到私有仓库）
+        IO_TEST_IMAGE = "registry.example.com/io-test-tool:latest"
+        NETWORK_TEST_IMAGE = "registry.example.com/network-test-tool:latest"
+        
+        // 要测试的设备路径（根据实际情况修改）
+        DISK_DEVICE = "/dev/sda"
+        // 如果需要测试多个磁盘设备，可以定义为数组或逗号分隔的字符串
+        // DISK_DEVICES = "/dev/sda,/dev/sdb"
+    }
+    
+    stages {
+        stage('Prepare Environment') {
+            steps {
+                script {
+                    // 检查当前节点是否有 Docker
+                    sh 'docker --version'
+                    
+                    // 检查设备是否存在
+                    sh "ls -la ${env.DISK_DEVICE} || echo '设备不存在，但可能在某些情况下是正常的'"
+                    
+                    // 登录到私有 Docker 仓库（如果需要）
+                    withCredentials([usernamePassword(credentialsId: 'docker-registry-creds', usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASS')]) {
+                        sh "echo ${REGISTRY_PASS} | docker login -u ${REGISTRY_USER} --password-stdin registry.example.com"
+                    }
+                    
+                    // 拉取最新的测试镜像
+                    sh "docker pull ${env.IO_TEST_IMAGE}"
+                    sh "docker pull ${env.NETWORK_TEST_IMAGE}"
+                }
+            }
+        }
+        
+        stage('Run IO Test') {
+            steps {
+                script {
+                    // 运行 IO 测试容器
+                    try {
+                        // 使用 --device 参数将宿主机的磁盘设备映射到容器内
+                        sh "docker run --rm --device ${env.DISK_DEVICE}:${env.DISK_DEVICE} ${env.IO_TEST_IMAGE}"
+                    } catch (Exception e) {
+                        // 测试失败的处理
+                        echo "IO 测试失败: ${e.getMessage()}"
+                        currentBuild.result = 'UNSTABLE'
+                        // 可以选择继续执行后续测试
+                    }
+                }
+            }
+            post {
+                always {
+                    // 收集测试结果（假设脚本会生成测试报告）
+                    archiveArtifacts artifacts: 'io_test_results.xml', allowEmptyArchive: true
+                    junit 'io_test_results.xml'
+                }
+            }
+        }
+        
+        stage('Run Network Test') {
+            steps {
+                script {
+                    // 运行网络测试容器
+                    try {
+                        // 使用 --network=host 让容器使用主机网络栈
+                        sh "docker run --rm --network=host ${env.NETWORK_TEST_IMAGE}"
+                    } catch (Exception e) {
+                        // 测试失败的处理
+                        echo "网络测试失败: ${e.getMessage()}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+            post {
+                always {
+                    // 收集测试结果
+                    archiveArtifacts artifacts: 'network_test_results.xml', allowEmptyArchive: true
+                    junit 'network_test_results.xml'
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            // 清理工作
+            sh 'docker system prune -f' // 谨慎使用，根据实际情况调整
+            // 生成测试报告摘要
+            script {
+                def summary = "硬件测试完成 - 结果: ${currentBuild.result ?: 'SUCCESS'}"
+                echo summary
+                // 可以发送通知到邮件或聊天工具
+            }
+        }
+        success {
+            // 测试成功后的操作
+            echo '所有硬件测试通过!'
+        }
+        failure {
+            // 测试失败后的操作
+            echo '硬件测试失败，请检查设备状态!'
+        }
+        unstable {
+            // 测试不稳定的处理
+            echo '部分测试未通过，设备可能存在潜在问题!'
+        }
+    }
+}
+详细步骤说明
+1. 准备工作
+a. 配置 Jenkins 节点
+确保至少有一个 Jenkins 节点（agent）具有硬件访问权限
+给这个节点打上标签（如 hardware-worker）
+在该节点上安装 Docker 并配置好权限
+
+b. 准备 Docker 镜像
+按照方法一创建两个 Dockerfile 并构建镜像
+将镜像推送到 Docker 仓库（如 Docker Hub 或私有仓库）
+
+c. 配置 Jenkins 凭据
+在 Jenkins 中创建凭据用于访问私有 Docker 仓库（如果需要）
+
+2. 流水线执行流程
+阶段 1: 准备环境
+检查 Docker 是否可用
+验证要测试的设备是否存在
+登录到 Docker 仓库（如果需要）
+拉取最新的测试镜像
+
+阶段 2: 执行 IO 测试
+使用 --device 参数将宿主机的磁盘设备映射到容器内
+运行 IO 测试容器
+捕获并处理可能的异常
+收集和存档测试结果
+
+阶段 3: 执行网络测试
+使用 --network=host 参数让容器使用主机网络栈
+运行网络测试容器
+捕获并处理可能的异常
+收集和存档测试结果
+
+3. 实际执行命令详解
+当 Jenkins 执行流水线时，实际运行的命令如下：
+# 准备环境阶段
+docker --version
+ls -la /dev/sda
+echo $REGISTRY_PASSWORD | docker login -u $REGISTRY_USER --password-stdin registry.example.com
+docker pull registry.example.com/io-test-tool:latest
+docker pull registry.example.com/network-test-tool:latest
+
+# IO 测试阶段
+docker run --rm --device /dev/sda:/dev/sda registry.example.com/io-test-tool:latest
+
+# 网络测试阶段
+docker run --rm --network=host registry.example.com/network-test-tool:latest
+
+# 清理阶段
+docker system prune -f
+
+4. 注意事项和最佳实践
+设备路径处理：
+确保设备路径正确，不同系统可能不同（如 NVMe 磁盘可能是 /dev/nvme0n1）
+可以考虑使用更稳定的设备标识符，如 /dev/disk/by-id/ 下的符号链接
+
+错误处理：
+使用 try-catch 结构处理可能的测试失败
+合理设置构建状态（SUCCESS, UNSTABLE, FAILURE）
+
+资源清理：
+使用 --rm 参数确保容器退出后自动删除
+定期清理 Docker 系统资源（但需谨慎，避免影响其他任务）
+
+测试结果收集：
+确保测试脚本会生成标准格式的测试报告（如 JUnit XML）
+使用 archiveArtifacts 和 junit 步骤存档和报告测试结果
+
+安全性：
+限制有权限执行此类任务的用户
+使用凭据管理敏感信息（如仓库密码）
+
+扩展性：
+可以考虑使用参数化构建，让用户可以选择要测试的设备
+可以添加并行执行阶段，如果测试之间没有依赖关系
+-------------------------------------------------------------------------------
