@@ -109,4 +109,169 @@ sudo insmod your_module.ko changed_param=new_value
 异常测试：
 模拟异常场景，如热插拔设备、突然断电后上电、资源（内存）耗尽等情况下的驱动行为。”
 ---------------------------------------------------------------------------
+4. 问题：你发现了一个Bug并提交了，但开发人员认为这不是Bug而是预期行为，或者无法复现，你会怎么做？
+首先，不简单地认为开发人员错了，而是会采取合作的态度：
 
+提供更清晰的证据：
+重新检查我的测试环境、步骤和数据，确保复现步骤是100%准确且可重复的。
+提供更详细的日志、截图、甚至是屏幕录像。
+
+深入理解需求：
+与开发人员和产品经理一起回顾需求文档，确认我们对需求的理解是否一致。
+可能是我理解有误，也可能是需求文档本身描述不清晰。
+
+现场复现：
+邀请开发人员到我的测试环境，或者我将测试环境配置信息完整地提供给他，亲自演示Bug的复现过程。
+
+分析根因：
+如果可能，我会尝试进行初步的根因分析，比如通过 strace, gdb 等工具，将问题定位到更具体的函数或代码行，这能极大地帮助开发人员快速解决问题。
+目标是共同保证产品质量，而不是‘抓Bug’。
+通过提供无可辩驳的证据和建设性的沟通，绝大多数分歧都能得到有效解决。
+---------------------------------------------------------------------------
+三、 自动化与工具链 (考察实战经验和工具使用能力)
+5. 问题：你有使用Shell或Python进行自动化测试的经验。
+请举例说明你如何用Python（或Shell）编写一个自动化测试脚本，来测试一个字符设备驱动（比如/dev/my_char_dev）的读写功能。
+假设需要测试一个简单的字符设备，会用Python的 os 模块进行系统调用。脚本的大致框架如下：
+#!/usr/bin/env python3
+import os
+
+# 定义设备节点
+dev_path = '/dev/my_char_dev'
+
+# 测试数据
+test_data = b"Hello, Driver! This is a test string."
+
+try:
+    # 1. 打开设备
+    fd = os.open(dev_path, os.O_RDWR)
+    print(f"Device {dev_path} opened successfully.")
+
+    # 2. 写入数据
+    bytes_written = os.write(fd, test_data)
+    print(f"Written {bytes_written} bytes: {test_data}")
+
+    # 3. 定位到文件开头（为读取做准备）
+    os.lseek(fd, 0, os.SEEK_SET)
+
+    # 4. 读取数据
+    read_data = os.read(fd, len(test_data)) # 读取同样长度的数据
+    print(f"Read {len(read_data)} bytes: {read_data}")
+
+    # 5. 验证数据是否正确
+    if read_data == test_data:
+        print("PASS: Data read back correctly.")
+    else:
+        print("FAIL: Data mismatch!")
+
+    # 6. 关闭设备
+    os.close(fd)
+    print("Device closed.")
+
+except OSError as e:
+    print(f"Operation failed: {e}")
+实际项目中，会将其封装成函数，加入日志记录、异常处理、参数化（测试不同数据）、以及与CI工具（如Jenkins）集成。
+---------------------------------------------------------------------------
+6. 问题：职位要求中提到Gerrit, Jenkins, Docker, Jira。请谈谈你如何在日常工作中使用这些工具，并描述它们是如何协作的。
+Jira：
+用于需求、任务和缺陷跟踪。
+会在Jira上创建测试任务，接收开发提测的版本号，并将发现的Bug提交到Jira，指派给相应开发人员，跟踪其状态从‘新建’到‘已解决’，最后进行回归测试并关闭。
+
+Gerrit：
+代码审查工具。开发人员提交的驱动代码会推送到Gerrit，和其他同事会进行代码评审，不仅看功能，也会关注代码中可能存在的可测试性问题和潜在风险。
+
+Jenkins：
+持续集成/交付的核心。我会配置Jenkins 自动化任务：
+
+1）监听Gerrit的代码合并或定时触发。
+2）自动从仓库拉取最新代码，编译生成内核和驱动模块。
+3）启动Docker容器或在预置的物理测试机上部署新版本驱动。
+4）自动执行我编写的自动化测试脚本集。
+5）收集测试结果和日志，生成报告并邮件通知团队。
+
+Docker：
+主要用它来创建标准化、可复现的测试环境。
+通过Dockerfile定义包含特定内核版本、依赖库和测试工具的环境镜像，可以保证每个测试运行的环境完全一致，
+避免了‘在我机器上是好的’这类问题。Jenkins会拉起这些容器来执行测试。
+
+它们的协作流程是：
+代码 -> Gerrit (Review) -> 合并 -> Jenkins (触发构建和测试) 
+-> 测试报告 -> (如果失败) Jira (创建Bug)，形成一个高质量的自动化闭环。
+---------------------------------------------------------------------------
+四、 情景与编程题 (考察综合能力和动手能力)
+7. 问题：【编程题】请用Shell脚本编写一个简单的压力测试工具，循环对某个驱动设备节点进行1000次‘打开-写入-读取-验证-关闭’的操作，并在任何一次失败时记录日志并退出。
+#!/bin/bash
+
+DEVICE="/dev/my_device"
+TEST_STR="Pressure Test Data"
+LOG_FILE="pressure_test.log"
+COUNT=1000
+
+# 检查设备是否存在
+if [[ ! -c $DEVICE ]]; then
+    echo "Error: Device $DEVICE does not exist!" | tee -a $LOG_FILE
+    exit 1
+fi
+
+echo "Starting pressure test for $COUNT iterations..." | tee -a $LOG_FILE
+
+for ((i=1; i<=$COUNT; i++))
+do
+    # 打开设备并获取文件描述符
+    if ! exec 3<> $DEVICE; then
+        echo "Iteration $i FAILED: Cannot open device." | tee -a $LOG_FILE
+        exit 2
+    fi
+
+    # 写入数据
+    if ! echo -n "$TEST_STR" >&3; then
+        echo "Iteration $i FAILED: Write error." | tee -a $LOG_FILE
+        exec 3>&- # 关闭FD
+        exit 3
+    fi
+
+    # 读取数据
+    if ! read -r -u 3 -n ${#TEST_STR} result; then
+        echo "Iteration $i FAILED: Read error." | tee -a $LOG_FILE
+        exec 3>&-
+        exit 4
+    fi
+
+    # 验证数据
+    if [[ "$result" != "$TEST_STR" ]]; then
+        echo "Iteration $i FAILED: Data mismatch. Expected: '$TEST_STR', Got: '$result'" | tee -a $LOG_FILE
+        exec 3>&-
+        exit 5
+    fi
+
+    # 关闭设备
+    exec 3>&-
+
+    # 打印进度
+    if (( i % 100 == 0 )); then
+        echo "Iteration $i completed successfully."
+    fi
+done
+
+echo "Pressure test PASSED all $COUNT iterations!" | tee -a $LOG_FILE
+exit 0
+---------------------------------------------------------------------------
+8. 问题：在性能测试中，你发现驱动的一个IO操作延迟很高。你可能会使用哪些Linux工具来定位性能瓶颈？请简述你的分析思路。
+系统层面：
+首先使用 top 或 htop 查看整体CPU、IOwait情况。
+使用 iostat -x 1 查看磁盘的利用率（%util）、响应时间（await）、队列长度（aqu-sz），判断瓶颈是否在硬件IO。
+
+进程/函数层面：
+如果CPU高，我会使用 perf 工具对系统或特定进程进行采样分析。
+perf top 实时查看热点函数。
+perf record -g -p <pid> 记录调用栈，
+然后用 perf report 分析，看时间主要消耗在驱动代码、内核通用代码还是用户空间，这能直接定位到耗时的函数。
+
+内核轨迹跟踪：
+对于更底层的延迟分析，我会使用 ftrace 或 bpftrace 来跟踪内核函数的调用延迟。
+例如，设置跟踪 irq_handler, softirq, 驱动中的 read/write 函数，测量它们从开始到结束的时间，
+从而判断延迟具体发生在哪个阶段（硬件中断处理、软中断、锁竞争、内存分配等）。
+
+锁竞争分析：
+如果怀疑是锁的问题，可以使用 lockstat 或 perf lock 来分析自旋锁或互斥锁的竞争情况。
+通过组合使用这些工具，我可以一步步将高性能延迟的根因定位到具体的代码行或系统组件。
+---------------------------------------------------------------------------
