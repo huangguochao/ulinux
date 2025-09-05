@@ -101,6 +101,9 @@ world hello world
 print("{:.2f}".format(3.1415926))
 3.14
 3、内置round(number[, ndigits])
+x=123.45678
+y=round(x,3)
+print(y)      => 123.457
 
 number - 这是一个数字表达式。
 ndigits - 表示从小数点到最后四舍五入的位数。默认值为0。
