@@ -32,6 +32,13 @@ class Solution:
         
         return True if not stack else False
 
+if __name__ == "__main__":
+    solution = Solution()
+    test_cases = ["()[]{}", "(]", "([)]", "{[]}"]
+
+    for case in test_cases:
+        print(f"input: '{case}', result: {solution.isValid(case)}")
+
 # 方法二，使用字典
 class Solution:
     def isValid(self, s: str) -> bool:
