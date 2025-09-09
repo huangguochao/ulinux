@@ -1,0 +1,69 @@
+tunning.service
+-------------------------------------------------
+[Unit]
+Description=System Performance Tuning Service
+After=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/default/tunning
+ExecStart=/usr/local/bin/tunning.sh $MODE
+ExecStop=/usr/local/bin/tunning.sh reset
+
+[Install]
+WantedBy=multi-user.target
+--------------------------------------------------
+tunning.conf
+# 默认模式配置
+MODE=performance
+--------------------------------------------------
+tunning.sh
+
+#!/bin/bash
+
+# 性能模式设置
+performance_tune() {
+    echo "Applying performance tuning"
+    # CPU设置
+    cpupower frequency-set -g performance
+    # 内核参数
+    sysctl -w vm.swappiness=10
+    # 磁盘调度器
+    echo deadline > /sys/block/sda/queue/scheduler
+}
+
+# 节能模式设置
+powersave_tune() {
+    echo "Applying powersave tuning"
+    # CPU设置
+    cpupower frequency-set -g powersave
+    # 内核参数
+    sysctl -w vm.swappiness=60
+    # 磁盘调度器
+    echo cfq > /sys/block/sda/queue/scheduler
+}
+
+# 重置设置
+reset_tune() {
+    echo "Resetting tuning parameters"
+    cpupower frequency-set -g ondemand
+    sysctl -w vm.swappiness=30
+    echo mq-deadline > /sys/block/sda/queue/scheduler
+}
+
+case "$1" in
+    performance)
+        performance_tune
+        ;;
+    powersave)
+        powersave_tune
+        ;;
+    reset)
+        reset_tune
+        ;;
+    *)
+        echo "Usage: $0 {performance|powersave|reset}"
+        exit 1
+esac
+--------------------------------------------------
