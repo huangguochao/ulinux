@@ -1,0 +1,81 @@
+tunning.c
+-----------------------------------------------------------------------
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
+
+static char *mode = "performance";
+module_param(mode, charp, 0644);
+MODULE_PARM_DESC(mode, "Set mode: performance/powersave");
+
+static void set_performance(void) {
+    printk(KERN_INFO "TUNING: Setting performance mode\n");
+    // 实际性能模式设置代码示例：
+    // 1. 调整CPU频率策略
+    // 2. 禁用节能功能
+    // 3. 提高网络吞吐量参数
+}
+
+static void set_powersave(void) {
+    printk(KERN_INFO "TUNING: Setting powersave mode\n");
+    // 实际节能模式设置代码示例：
+    // 1. 启用CPU深度睡眠状态
+    // 2. 降低屏幕亮度阈值
+    // 3. 限制后台进程资源
+}
+
+static int __init tuning_init(void) {
+    printk(KERN_INFO "TUNING: Module loaded with mode=%s\n", mode);
+    
+    if (strcmp(mode, "performance") == 0) {
+        set_performance();
+    } else if (strcmp(mode, "powersave") == 0) {
+        set_powersave();
+    } else {
+        printk(KERN_WARNING "TUNING: Invalid mode specified\n");
+    }
+    
+    return 0;
+}
+
+static void __exit tuning_exit(void) {
+    printk(KERN_INFO "TUNING: Module unloaded\n");
+}
+
+module_init(tuning_init);
+module_exit(tuning_exit);
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("YourName");
+MODULE_DESCRIPTION("System tuning module");
+
+-----------------------------------------------------------------------
+Makefile
+
+obj-m := tuning.o
+KDIR := /lib/modules/$(shell uname -r)/build
+PWD := $(shell pwd)
+
+all:
+	make -C $(KDIR) M=$(PWD) modules
+
+clean:
+	make -C $(KDIR) M=$(PWD) clean
+-----------------------------------------------------------------------
+操作流程说明：
+
+编译模块：执行make命令生成tuning.ko
+加载模块：
+性能模式：sudo insmod tuning.ko mode=performance
+节能模式：sudo insmod tuning.ko mode=powersave
+查看日志：dmesg | grep TUNING
+卸载模块：sudo rmmod tuning
+检查加载情况：lsmod | grep tuning
+
+代码特点：
+支持动态参数传递，通过module_param实现
+包含完整的模块初始化和清理函数
+提供两种系统配置模式的框架实现
+完善的日志输出便于调试
+符合标准内核模块开发规范
+
+-----------------------------------------------------------------------
