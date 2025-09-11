@@ -157,8 +157,8 @@ class Solution:
         maxAns = nums[0]
 
         for i in range(len(nums)):
-            pre = max(pre + nums[i], nums[i])
-            maxAns = max(maxAns, pre)
+            pre = max(pre + nums[i], nums[i])    # 上一个最大值pre和当前的和，与当前值比。 pre值为负数放弃
+            maxAns = max(maxAns, pre)            # 新的最大值为 pre和 最大值中的一个
 
         return maxAns
 
