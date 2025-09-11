@@ -58,5 +58,33 @@ LC455 分发饼干
 你有两个孩子和三块小饼干，2 个孩子的胃口值分别是 1,2。
 你拥有的饼干数量和尺寸都足以让所有孩子满足。
 所以你应该输出 2。
+----------------------------
+from typing import List
+class Solution:
+    def maxbin(self, weikou:List[int],bingan:List[int]) -> int:
+        weikou.sort()
+        bingan.sort()
+        i = 0
+        j = 0
 
+        while i < len(weikou) and j < len(bingan):
+            if weikou[i] <= bingan[j]:
+                i += 1
+            j += 1
+
+        return i
+
+if __name__ == "__main__":
+    solu = Solution()
+    g = [1, 2, 3]
+    s = [1, 1]
+
+    g = [1, 2]
+    s = [1, 2, 3]
+
+    g = [1, 2, 3]
+    s = [2, 3, 3]
+
+    result = solu.maxbin(g,s)
+    print(result)
 -------------------------------------------------------
