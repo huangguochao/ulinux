@@ -336,7 +336,6 @@ class Solution:
 
         return stack
 
-
 if __name__ == "__main__":
     asteroids = [ 5, 10, -5]
     asteroids = [ 8, -8]
