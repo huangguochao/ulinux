@@ -175,6 +175,39 @@ if __name__ == "__main__":
 
     result = solu.trap(height)
     print(result)
+----------------------------------------
+from typing import List
+class Solution:
+    def trap(self, height:List[int]) -> int:
+        left = 0
+        right = len(height) - 1
+        leftMax = 0
+        rightMax = 0
+        sum = 0
+
+        if not height:
+            return 0
+
+        while left < right:
+            if height[left] < height[right]:
+                left += 1
+                leftMax = max(leftMax, height[left])
+                sum += leftMax - height[left]
+            else:
+                right -= 1
+                rightMax = max(rightMax, height[right])
+                sum += rightMax - height[right]
+        return sum
+
+if __name__ == "__main__":
+    print("请输入高度值（空格分割）：")
+    height_input = input()
+    height = []
+    for i in height_input.split():
+        height.append(int(i))
+    solu = Solution()
+    result = solu.trap(height)
+    print(result)
 ---------------------------------------------------------------------------------------------
 
 ---------------------------------------------------------------------------------------------
