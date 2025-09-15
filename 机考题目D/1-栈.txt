@@ -294,9 +294,12 @@ if __name__ == "__main__":
     print(result)
 -----------------------------------------------------------------------
 735. 小行星碰撞
-给定一个整数数组 asteroids，表示在同一行的小行星。数组中小行星的索引表示它们在空间中的相对位置。
-对于数组中的每一个元素，其绝对值表示小行星的大小，正负表示小行星的移动方向（正表示向右移动，负表示向左移动）。每一颗小行星以相同的速度移动。
-找出碰撞后剩下的所有小行星。碰撞规则：两个小行星相互碰撞，较小的小行星会爆炸。如果两颗小行星大小相同，则两颗小行星都会爆炸。两颗移动方向相同的小行星，永远不会发生碰撞。
+给定一个整数数组 asteroids，表示在同一行的小行星。
+数组中小行星的索引表示它们在空间中的相对位置。
+对于数组中的每一个元素，其绝对值表示小行星的大小，正负表示小行星的移动方向（正表示向右移动，负表示向左移动）。
+每一颗小行星以相同的速度移动。
+找出碰撞后剩下的所有小行星。
+碰撞规则：两个小行星相互碰撞，较小的小行星会爆炸。如果两颗小行星大小相同，则两颗小行星都会爆炸。两颗移动方向相同的小行星，永远不会发生碰撞。
 
 示例 1：
 输入：asteroids = [5,10,-5]
@@ -312,4 +315,34 @@ if __name__ == "__main__":
 输入：asteroids = [10,2,-5]
 输出：[10]
 解释：2 和 -5 发生碰撞后剩下 -5 。10 和 -5 发生碰撞后剩下 10 。
+
+from typing import List
+class Solution:
+    def findasteroids(self, asteroids:List[int]) -> List[int]:
+        stack = []
+
+        for item in asteroids:
+            while stack and item < 0 < stack[-1]:
+                if abs(item) > stack[-1]:
+                    stack.pop()
+                    continue
+                elif abs(item) == stack[-1]:
+                    stack.pop()
+                    break
+                else:
+                    break
+            else:
+                stack.append(item)
+
+        return stack
+
+
+if __name__ == "__main__":
+    asteroids = [ 5, 10, -5]
+    asteroids = [ 8, -8]
+    asteroids = [ 10, 2, -5]
+    solu = Solution()
+    result = solu.findasteroids(asteroids)
+
+    print(result)
 -----------------------------------------------------------------------
