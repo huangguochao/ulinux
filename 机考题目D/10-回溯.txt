@@ -144,4 +144,56 @@ candidates中的同一个数字可以无限制重复被选取。
 示例 3：
 输入: candidates = [2], target = 1
 输出: []
+----------
+from typing import List
+class Solution:
+    def combinationSum(self, candidates:List[int], target:int)-> List[int]:
+        """
+        组合总和问题解法（回溯算法）
+        :param candidates: 无重复元素的整数数组
+        :param target: 目标整数
+        :return: 所有可能的组合列表
+        """
+        res = []  # 存储最终结果
+
+        def backtrack(start, path, remaining):
+            """
+            回溯核心函数
+            :param start: 当前候选数的起始索引（避免重复组合）
+            :param path: 当前组合路径
+            :param remaining: 距离目标值的剩余量
+            """
+            # 终止条件1：剩余量为0时记录有效组合
+            if remaining == 0:
+                res.append(path.copy())  # 注意要用copy避免后续修改影响
+                return
+
+            # 终止条件2：剩余量小于0时剪枝
+            if remaining < 0:
+                return
+
+            # 遍历候选数（从start开始避免重复组合）
+            for i in range(start, len(candidates)):
+                num = candidates[i]
+                path.append(num)  # 选择当前数
+                # 关键点：允许重复选择，所以下一轮仍从i开始
+                backtrack(i, path, remaining - num)
+                path.pop()  # 撤销选择（回溯）
+
+        backtrack(0, [], target)  # 初始调用
+        return res
+# 示例测试
+#print(combinationSum([2,3,6,7], 7))  # 输出: [[2,2,3],[7]]
+#print(combinationSum([2,3,5], 8))    # 输出: [[2,2,2,2],[2,3,3],[3,5]]
+
+if __name__ == "__main__":
+    candidates = [2,3,6,7]
+    target = 7
+    candidates = [2,3,5]
+    target = 8
+#    candidates = [2]
+#    target = 1
+    solu = Solution()
+    result = solu.combinationSum( candidates, target)
+    print(result)
 -------------------------------------------------------
