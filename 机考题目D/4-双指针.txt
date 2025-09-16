@@ -367,5 +367,52 @@ if __name__ == "__main__":
     result = solu.maxArea(height)
     print(result)
 --------------------------------------------------------------------------------------------
+16. 最接近的三数之和
+给你一个长度为 n 的整数数组 nums 和 一个目标值 target。
+请你从 nums 中选出三个整数，使它们的和与 target 最接近。
+返回这三个数的和。
+假定每组输入只存在恰好一个解。
 
+示例 1：
+输入：nums = [-1,2,1,-4], target = 1
+输出：2
+解释：与 target 最接近的和是 2 (-1 + 2 + 1 = 2)。
+
+示例 2：
+输入：nums = [0,0,0], target = 1
+输出：0
+解释：与 target 最接近的和是 0（0 + 0 + 0 = 0）。
+----------
+from typing import List
+class Solution:
+    def find3sum(slef, nums: List[int], target:int) -> int:
+        nums.sort()
+        closest = float('inf')
+
+        for i in range(len(nums) - 2):
+            left = i + 1
+            right = len(nums) - 1
+            while left < right:
+                sum = nums[i] + nums[left] + nums[right]
+                if sum == target:
+                    return sum
+
+                if abs(sum - target) < abs(closest - target):
+                    closest = sum
+
+                if sum < target:
+                    left += 1
+                else:
+                    right -= 1
+        return closest
+
+if __name__ == "__main__":
+    nums = [-1, 2, 1, -4]
+    target = 1
+    nums = [0, 0, 0]
+    target = 1
+
+    solu = Solution()
+    result = solu.find3sum(nums,target)
+    print(result)
 --------------------------------------------------------------------------------------------
