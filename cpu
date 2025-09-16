@@ -1,0 +1,19 @@
+timeline
+    title 近五年Intel x86服务器CPU演进时间线
+    section 2021
+        Ice Lake-SP             : 40核 : 10nm制程
+                                : 支持PCIe 4.0
+                                : 支持DDR4-3200
+    section 2023
+        Sapphire Rapids         : 60核 : Intel 7制程
+                                : 内置加速器 (AMX, QAT等)
+                                : 支持DDR5, PCIe 5.0, CXL 1.1
+    section 2024
+        Sierra Forest (E核)     : 144核 : Intel 3制程
+                                : 高密度能效核心
+        Granite Rapids (P核)    : 预期86+核 : Intel 3制程
+                                : 支持MRDIMM内存
+    section 2025 (预计)
+        Clearwater Forest (E核) : 288核 : Intel 18A制程
+                                : Darkmont架构
+                                : 支持DDR5-8000
