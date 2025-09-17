@@ -1,0 +1,15 @@
+tmp_table_size = 1024M  #设置内存临时表最大值，如果超过该值，则会将临时表写入磁盘。
+
+max_heap_table_size = 1024M  #独立的内存表所允许的最大容量
+
+table_cache = 1024  #给经常访问的表分配内存，物理内存越大，设置就越大。
+
+table_open_cache = 1024 #设置表高速缓存的数目，每个连接进来，都会至少打开一个表缓存。
+
+long_query_time = 1 #慢查询的执行用时上限，默认设置是10s，推荐（1s~2s）
+
+log_long_format # 没有使用索引的查询也会被记录。（推荐根据业务来调整）
+
+log-show-queries = /data/3306/show.log  # 慢查询日志文件路径(如果开启慢查询，建议打开此日志）
+
+log-bin = /data/3306/mysql-bin  # logbin数据库的操作日志，例如updata,delete, create等
