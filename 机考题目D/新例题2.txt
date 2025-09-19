@@ -1,0 +1,110 @@
+2.
+特工身份识别系统
+在一个高度机密的跨国情报机构中，为了确保信息安全，所有特工都配备了一个唯一的 48
+48 位二进制身份代号。该代号通常以 66 个十六进制字节的形式表示，例如 `00-d8-61-ef-31-3e`。
+
+为了管理庞大的特工网络并精确控制访问权限，机构采用了一种基于前缀匹配的授权体系。
+一个授权规则由基础代号和安全等级 M
+M 共同定义，格式为 `xx-xx-xx-xx-xx-xx/M`。
+
+安全等级 M
+M 是一个介于 00 到 48
+48 之间的整数，它定义了身份代号中需要匹配的前 M 位。
+- 当 M=48 时，要求身份代号完全匹配，这通常用于授权单个特工。
+- 当 M<48 时，只要求身份代号的前 M 位与基础代号的前 M位相同，这通常用于授权一个小组或整个部门。
+例如，一条规则 `00-e0-fc-01-01-01/32` 意味着所有身份代号以 `00-e0-fc-01` 开头的特工都将被授予权限，其代号范围从 `00-e0-fc-01-00-00` 到 `00-e0-fc-01-ff-ff`。
+- 特别地，当 M=0 时，不匹配任何位，意味着授权所有特工。
+
+您的任务是开发一个高效的身份认证系统。给定一组授权规则，您需要快速判断前来访问的特工是否在授权列表中。
+时间限制：C/C++ 3秒，其他语言6秒
+空间限制：C/C++ 256M，其他语言512M
+输入描述：
+输入的第一行是一个整数 n (1 \le n \le 100000)，代表授权规则的总数。
+
+接下来的 n 行，每行包含一条授权规则，格式为 `xx-xx-xx-xx-xx-xx/M`，其中 M 是一个整数（0 \le M \le 48），`xx` 是由小写字母 `a-f` 和数字 `0-9` 组成的两位十六进制数。
+
+随后的一行是一个整数 m (1 \le m \le 100)，代表待验证的特工数量。
+
+接下来的 m 行，每行包含一个待验证的特工身份代号，格式为 `xx-xx-xx-xx-xx-xx`。
+输出描述：
+对于 m 个待验证的身份代号，逐行输出认证结果。如果一个代号至少匹配授权列表中的一条规则，则输出 `YES`；否则输出 `NO`。
+补充说明：
+本题由牛友@Charles 整理上传
+示例1
+输入例子：
+10
+7e-01-22-50-24-03/24
+e0-6b-23-3f-23-15/10
+58-7e-2a-50-e0-5f/19
+bc-09-f7-b2-b3-92/46
+e5-22-aa-f3-8c-8d/6
+f1-62-a1-b1-90-d3/34
+77-c3-f0-60-cd-d5/31
+1a-2b-14-85-11-f2/48
+a6-35-dc-ec-f8-fb/24
+ab-3e-94-df-cb-e8/9
+8
+c2-94-58-13-76-28
+e5-22-aa-f3-8c-8d
+98-7a-23-6f-e6-de
+e0-6b-23-3f-23-15
+77-c3-f0-60-cd-d5
+b4-4a-ec-51-0a-fc
+7e-01-22-50-24-03
+e0-6b-23-3f-23-15
+输出例子：
+NO
+YES
+NO
+YES
+YES
+NO
+YES
+YES
+---------------------------------------------------------
+import sys
+
+def main():
+    data = sys.stdin.read().splitlines()
+    n = int(data[0].strip())
+    groups = [set() for _ in range(49)]
+    
+    index = 1
+    for i in range(n):
+        s = data[index].strip()
+        index += 1
+        parts = s.split('/')
+        hex_str = parts[0].replace('-', '')
+        base_int = int(hex_str, 16)
+        M = int(parts[1])
+        shift = 48 - M
+        base_prefix = base_int >> shift
+        groups[shift].add(base_prefix)
+        
+    m = int(data[index].strip())
+    index += 1
+    
+    if groups[48]:
+        for i in range(m):
+            print('YES')
+    else:
+        results = []
+        for i in range(m):
+            s = data[index].strip()
+            index += 1
+            hex_str = s.replace('-', '')
+            x = int(hex_str, 16)
+            found = False
+            for shift in range(0, 48):
+                if not groups[shift]:
+                    continue
+                x_prefix = x >> shift
+                if x_prefix in groups[shift]:
+                    found = True
+                    break
+            results.append('YES' if found else 'NO')
+        for res in results:
+            print(res)
+
+if __name__ == "__main__":
+    main()
