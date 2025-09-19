@@ -1,0 +1,107 @@
+1.
+量子网络穿梭
+在一个未来的量子计算中心，您需要引导一个数据包（Data Packet）通过一个复杂的量子网络。该网络可以被抽象为一个 
+m × n 的二维矩阵。
+
+网络中的每个节点都有其特定的功能：
+- 标准通道 (Standard Channel) : 
+用数字 0 表示，数据包可以在相邻的标准通道节点之间自由移动，每次移动消耗 1 个时间单位。
+- 防火墙 (Firewall) : 用数字 1 表示，这些节点是损坏的或被设置为不可通行，数据包无法进入。
+- 量子纠缠门 (Quantum Entanglement Gate) : 用数字2 表示。网络中存在成对的纠缠门。
+  当数据包进入一个纠缠门时，它可以瞬间、不耗费任何时间地传送到与之配对的另一个纠缠门所在的位置。
+- 起点 (Source) : 用符号 S 表示，是数据包的初始位置。
+- 终点 (Destination) : 用符号 E 表示，是数据包的目标位置。
+
+您的任务是计算出数据包从起点 S 到达终点 E 所需的最短时间。
+数据包只能在网络的上下左右四个方向上移动，不能移出网络边界，也不能穿过防火墙。如果数据包无法到达终点，则返回 −1。
+
+时间限制：C/C++ 1秒，其他语言2秒
+空间限制：C/C++ 256M，其他语言512M
+输入描述：
+输入的第一行包含两个正整数 m 和 n (1 \le m, n \le 50)，分别代表量子网络的行数和列数。
+
+接下来的 m 行，每行包含 n 个字符，描述了量子网络每个节点的类型。
+字符集为 \{'0', '1', '2', 'S', 'E'\}。
+
+输出描述：
+输出一个整数，表示数据包从起点到终点所需的最短时间。如果无法到达，则输出 -1。
+
+补充说明：
+本题由牛友@Charles 整理上传
+示例1
+输入例子：
+4 9
+001010000
+00000000S
+0100E0001
+100000001
+输出例子：
+5
+----------------------------------------------------------------------------------
+import sys
+from collections import deque
+
+def shortest_time_quantum_network():
+    # 读取输入
+    m, n = map(int, sys.stdin.readline().split())
+    grid = []
+    gates = {}  # 存储纠缠门配对关系
+    start = None
+    end = None
+    
+    for i in range(m):
+        line = sys.stdin.readline().strip()
+        row = list(line)
+        grid.append(row)
+        for j in range(n):
+            if row[j] == 'S':
+                start = (i, j)
+            elif row[j] == 'E':
+                end = (i, j)
+            elif row[j] == '2':
+                if '2' in gates:
+                    gates[(i, j)] = gates['2']
+                    gates[gates['2']] = (i, j)
+                    del gates['2']
+                else:
+                    gates['2'] = (i, j)
+    
+    if not start or not end:
+        print(-1)
+        return
+    
+    # BFS初始化
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    visited = [[False for _ in range(n)] for _ in range(m)]
+    queue = deque([(start[0], start[1], 0)])
+    visited[start[0]][start[1]] = True
+    
+    while queue:
+        x, y, time = queue.popleft()
+        
+        # 到达终点
+        if (x, y) == end:
+            print(time)
+            return
+        
+        # 检查当前节点是否为纠缠门
+        if (x, y) in gates:
+            nx, ny = gates[(x, y)]
+            if not visited[nx][ny]:
+                visited[nx][ny] = True
+                queue.appendleft((nx, ny, time))  # 纠缠门不耗时，优先处理
+        
+        # 四个方向移动
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < m and 0 <= ny < n and not visited[nx][ny]:
+                if grid[nx][ny] == '1':
+                    continue  # 防火墙不可通行
+                visited[nx][ny] = True
+                queue.append((nx, ny, time + 1))
+    
+    # 无法到达终点
+    print(-1)
+
+shortest_time_quantum_network()
+----------------------------------------------------------------------------------
