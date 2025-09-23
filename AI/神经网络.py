@@ -2,6 +2,8 @@
 # 2）误差
 # 3）梯度
 # 4）反向传播
+
+#训练
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
