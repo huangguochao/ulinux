@@ -66,3 +66,6 @@ plt.plot(history.history['val_accuracy'], label='val')
 plt.title("全连接神经网络accuracy值图")
 plt.legend()
 plt.show()
+----------------------------------------------------
+----------------------------------------------------
+#测试
